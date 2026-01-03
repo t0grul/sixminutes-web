@@ -71,11 +71,13 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
   const [selectedWord, setSelectedWord] = useState<string | null>(null)
   const [popupPosition, setPopupPosition] = useState<PopupPosition | null>(null)
   const [showDefineButton, setShowDefineButton] = useState(false)
+  const selectionRangeRef = useRef<Range | null>(null)
   
   // Definition modal state
   const [showDefinitionModal, setShowDefinitionModal] = useState(false)
   const [definition, setDefinition] = useState<string | null>(null)
   const [defLoading, setDefLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
   
   const audioRef = useRef<HTMLAudioElement>(null)
   const transcriptRef = useRef<HTMLDivElement>(null)
@@ -158,10 +160,12 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
     const text = selection?.toString().trim()
     
     if (text && text.length > 0 && text.length < 50 && !text.includes('\n')) {
-      // Get the selection range and position
       const range = selection?.getRangeAt(0)
       if (range) {
         const rect = range.getBoundingClientRect()
+        // Store the range in ref before state update
+        selectionRangeRef.current = range.cloneRange()
+        
         setSelectedWord(text)
         setPopupPosition({
           x: rect.left + rect.width / 2,
@@ -173,8 +177,20 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
       setShowDefineButton(false)
       setSelectedWord(null)
       setPopupPosition(null)
+      selectionRangeRef.current = null
     }
   }, [])
+
+  // Restore selection after React re-render
+  useEffect(() => {
+    if (showDefineButton && selectionRangeRef.current) {
+      const selection = window.getSelection()
+      if (selection) {
+        selection.removeAllRanges()
+        selection.addRange(selectionRangeRef.current)
+      }
+    }
+  }, [showDefineButton])
 
   const handleDefineClick = async () => {
     if (!selectedWord) return
@@ -207,7 +223,7 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
     setSelectedWord(null)
     setDefinition(null)
     setPopupPosition(null)
-    window.getSelection()?.removeAllRanges()
+    // Don't clear the selection - let user keep their text selection
   }
 
   const saveWord = async (word: string, def: string) => {
@@ -220,6 +236,7 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
       return
     }
 
+    setSaving(true)
     try {
       const res = await fetch("/api/vocabulary", {
         method: "POST",
@@ -233,12 +250,12 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
       
       if (res.ok) {
         setSavedWords(prev => new Set([...prev, wordLower]))
+        closeDefinitionModal()
         toast({
           title: "Word saved!",
           description: `"${word}" added to your vocabulary`,
           variant: "success"
         })
-        closeDefinitionModal()
       }
     } catch {
       toast({
@@ -246,6 +263,8 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
         description: "Failed to save word",
         variant: "destructive"
       })
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -404,10 +423,14 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
         <div
           className="define-popup fixed z-50 transform -translate-x-1/2 -translate-y-full"
           style={{ left: popupPosition.x, top: popupPosition.y }}
+          onMouseDown={(e) => e.preventDefault()}
         >
           <Button
             size="sm"
-            onClick={handleDefineClick}
+            onMouseDown={(e) => {
+              e.preventDefault()
+              handleDefineClick()
+            }}
             className="shadow-lg bg-emerald-600 hover:bg-emerald-700 text-white rounded-full px-4"
           >
             <Sparkles className="w-3 h-3 mr-1" />
@@ -446,9 +469,19 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
                     <Button
                       className="w-full"
                       onClick={() => saveWord(selectedWord!, definition)}
+                      disabled={saving}
                     >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add to Vocabulary
+                      {saving ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add to Vocabulary
+                        </>
+                      )}
                     </Button>
                   )}
                   {savedWords.has(selectedWord?.toLowerCase() || '') && (
@@ -636,7 +669,7 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
               {lesson.transcript ? (
                 <div
                   ref={transcriptRef}
-                  className="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300 leading-relaxed select-text"
+                  className="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300 leading-relaxed select-text transcript-text"
                   onMouseUp={handleTextSelection}
                   dangerouslySetInnerHTML={{ __html: formatTranscript(lesson.transcript) }}
                 />

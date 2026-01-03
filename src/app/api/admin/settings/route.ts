@@ -36,18 +36,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Key is required' }, { status: 400 })
     }
 
+    // Save the full value to database
     const setting = await prisma.settings.upsert({
       where: { key },
       update: { value },
       create: { key, value }
     })
 
+    // Return masked value for display
+    const displayValue = key === 'GEMINI_API_KEY' && value 
+      ? value.slice(0, 8) + '...' + value.slice(-4)
+      : value
+
     return NextResponse.json({ 
       setting: {
         ...setting,
-        value: key === 'GEMINI_API_KEY' && value 
-          ? value.slice(0, 8) + '...' + value.slice(-4)
-          : value
+        value: displayValue
       }
     })
   } catch (error) {

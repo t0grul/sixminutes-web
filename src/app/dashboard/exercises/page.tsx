@@ -133,28 +133,28 @@ export default function ExercisesPage() {
     setSubmitted(true)
 
     // Calculate scores
-    const mcCorrect = mcAnswers.filter((a, i) => a === exercises?.multiple_choice[i].correct).length
+    const mcCorrect = mcAnswers.filter((a, i) => a === exercises?.multiple_choice[i]?.correct).length
     const gapCorrect = gapAnswers.filter((a, i) => 
-      a.toLowerCase().trim() === exercises?.gap_fill[i].answer.toLowerCase()
+      a.toLowerCase().trim() === exercises?.gap_fill[i]?.answer?.toLowerCase()
     ).length
     const totalCorrect = mcCorrect + gapCorrect
     const total = totalQuestions
 
     // Build combined answers
-    const mcAnswersData = exercises?.multiple_choice.map((q, i) => ({
+    const mcAnswersData = exercises?.multiple_choice?.map((q, i) => ({
       type: "multiple_choice",
-      question: q.question,
-      userAnswer: q.options[mcAnswers[i] ?? -1] || "No answer",
-      correctAnswer: q.options[q.correct],
+      question: q.question || "",
+      userAnswer: q.options?.[mcAnswers[i] ?? -1] || "No answer",
+      correctAnswer: q.options?.[q.correct] || "No answer",
       isCorrect: mcAnswers[i] === q.correct
     })) || []
 
-    const gapAnswersData = exercises?.gap_fill.map((q, i) => ({
+    const gapAnswersData = exercises?.gap_fill?.map((q, i) => ({
       type: "gap_fill",
-      sentence: q.sentence,
+      sentence: q.sentence || "",
       userAnswer: gapAnswers[i] || "No answer",
-      correctAnswer: q.answer,
-      isCorrect: gapAnswers[i]?.toLowerCase().trim() === q.answer.toLowerCase()
+      correctAnswer: q.answer || "",
+      isCorrect: gapAnswers[i]?.toLowerCase().trim() === q.answer?.toLowerCase()
     })) || []
 
     const res = await fetch("/api/exercises", {
@@ -342,12 +342,12 @@ export default function ExercisesPage() {
                 // Multiple Choice Question
                 <div className="space-y-4">
                   <CardTitle className="text-lg">
-                    {exercises.multiple_choice[currentQuestion].question}
+                    {exercises.multiple_choice[currentQuestion]?.question || "Error loading question"}
                   </CardTitle>
                   <div className="space-y-3">
-                    {exercises.multiple_choice[currentQuestion].options.map((option, optIdx) => {
+                    {exercises.multiple_choice[currentQuestion]?.options?.map((option, optIdx) => {
                       const isSelected = mcAnswers[currentQuestion] === optIdx
-                      const isCorrect = optIdx === exercises.multiple_choice[currentQuestion].correct
+                      const isCorrect = optIdx === exercises.multiple_choice[currentQuestion]?.correct
                       const showResult = submitted
 
                       return (
@@ -384,14 +384,14 @@ export default function ExercisesPage() {
                           </div>
                         </button>
                       )
-                    })}
+                    }) || <span className="text-red-500">Error loading options</span>}
                   </div>
                 </div>
               ) : (
                 // Gap Fill Question
                 <div className="space-y-4">
                   <p className="text-lg text-gray-700 dark:text-gray-300">
-                    {exercises.gap_fill[gapIndex].sentence.split("____").map((part, i, arr) => (
+                    {exercises.gap_fill[gapIndex]?.sentence?.split("____").map((part, i, arr) => (
                       <span key={i}>
                         {part}
                         {i < arr.length - 1 && (
@@ -407,7 +407,7 @@ export default function ExercisesPage() {
                             disabled={submitted}
                             className={`inline-block w-40 mx-1 ${
                               submitted
-                                ? gapAnswers[gapIndex]?.toLowerCase().trim() === exercises.gap_fill[gapIndex].answer.toLowerCase()
+                                ? gapAnswers[gapIndex]?.toLowerCase().trim() === exercises.gap_fill[gapIndex]?.answer?.toLowerCase()
                                   ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20"
                                   : "border-red-500 bg-red-50 dark:bg-red-900/20"
                                 : ""
@@ -416,11 +416,11 @@ export default function ExercisesPage() {
                           />
                         )}
                       </span>
-                    ))}
+                    )) || <span className="text-red-500">Error loading question</span>}
                   </p>
-                  {submitted && gapAnswers[gapIndex]?.toLowerCase().trim() !== exercises.gap_fill[gapIndex].answer.toLowerCase() && (
+                  {submitted && gapAnswers[gapIndex]?.toLowerCase().trim() !== exercises.gap_fill[gapIndex]?.answer?.toLowerCase() && (
                     <p className="text-sm text-emerald-600 dark:text-emerald-400">
-                      Correct answer: <strong>{exercises.gap_fill[gapIndex].answer}</strong>
+                      Correct answer: <strong>{exercises.gap_fill[gapIndex]?.answer}</strong>
                     </p>
                   )}
                 </div>

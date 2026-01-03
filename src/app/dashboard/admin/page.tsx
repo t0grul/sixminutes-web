@@ -46,6 +46,7 @@ export default function AdminPage() {
   const [apiKey, setApiKey] = useState("")
   const [showApiKey, setShowApiKey] = useState(false)
   const [savingKey, setSavingKey] = useState(false)
+  const [hasApiKey, setHasApiKey] = useState(false)
   const [users, setUsers] = useState<User[]>([])
   const [lessons, setLessons] = useState<Lesson[]>([])
   const [loading, setLoading] = useState(true)
@@ -69,7 +70,15 @@ export default function AdminPage() {
 
       const apiKeySetting = settingsData.settings?.find((s: { key: string }) => s.key === "GEMINI_API_KEY")
       if (apiKeySetting) {
-        setApiKey(apiKeySetting.value)
+        setHasApiKey(true)
+        // Don't set the API key if it's masked - let user enter it fresh
+        if (!apiKeySetting.value.includes('...')) {
+          setApiKey(apiKeySetting.value)
+        } else {
+          setApiKey("") // Clear the field if the key is masked
+        }
+      } else {
+        setHasApiKey(false)
       }
 
       setUsers(usersData.users || [])
@@ -87,6 +96,24 @@ export default function AdminPage() {
   }
 
   const saveApiKey = async () => {
+    if (!apiKey.trim()) {
+      toast({
+        title: "Error",
+        description: "API key cannot be empty",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (apiKey.includes('...')) {
+      toast({
+        title: "Error", 
+        description: "Please enter the full API key, not the masked version",
+        variant: "destructive"
+      })
+      return
+    }
+
     setSavingKey(true)
     try {
       await fetch("/api/admin/settings", {
@@ -97,9 +124,14 @@ export default function AdminPage() {
           value: apiKey
         })
       })
+      
+      // Clear the input field and update status
+      setApiKey("")
+      setHasApiKey(true)
+      
       toast({
         title: "API Key Saved",
-        description: "The Gemini API key has been updated",
+        description: "The Gemini API key has been configured successfully",
         variant: "success"
       })
     } catch {
@@ -163,6 +195,11 @@ export default function AdminPage() {
           <CardTitle className="flex items-center gap-2">
             <Key className="w-5 h-5" />
             API Configuration
+            {hasApiKey && (
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                Configured
+              </span>
+            )}
           </CardTitle>
           <CardDescription>
             Configure the Gemini API key for AI features
@@ -170,7 +207,14 @@ export default function AdminPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="apiKey">Gemini API Key</Label>
+            <Label htmlFor="apiKey">
+              Gemini API Key
+              {hasApiKey && (
+                <span className="ml-2 text-sm text-emerald-600 dark:text-emerald-400">
+                  (Key is configured and secure)
+                </span>
+              )}
+            </Label>
             <div className="flex gap-3">
               <div className="relative flex-1">
                 <Input
@@ -178,7 +222,7 @@ export default function AdminPage() {
                   type={showApiKey ? "text" : "password"}
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="Enter your Gemini API key"
+                  placeholder={hasApiKey ? "Enter new API key to replace existing one" : "Enter your Gemini API key"}
                 />
                 <button
                   type="button"
@@ -194,7 +238,7 @@ export default function AdminPage() {
                 ) : (
                   <>
                     <Save className="w-4 h-4 mr-2" />
-                    Save
+                    {hasApiKey ? "Update" : "Save"}
                   </>
                 )}
               </Button>
@@ -209,6 +253,11 @@ export default function AdminPage() {
               >
                 Google AI Studio
               </a>
+              {hasApiKey && (
+                <span className="block mt-1 text-emerald-600 dark:text-emerald-400">
+                  ✓ API key is configured and ready to use
+                </span>
+              )}
             </p>
           </div>
         </CardContent>
